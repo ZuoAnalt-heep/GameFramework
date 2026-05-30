@@ -25,3 +25,17 @@
 - `GameFrameworkLinkedList<T>` 的 `AcquireNode` 和 `ReleaseNode` 体现了框架中常见的对象池思想：移除节点后不立即丢弃，而是清空值并缓存，后续再次添加时复用。
 
 当前理解：UnityGameFramework 的核心思想不是直接帮业务写玩法，而是先搭建一个模块化、低耦合、异步优先、可复用、重视性能和 GC 控制的游戏底层框架。
+
+#### 补充记录：Helper 与整体运行流程
+
+继续梳理了框架中大量 `Helper` 的作用和整体运行链路：
+
+- `Helper` 本质上是框架预留的适配器和策略扩展点，用于承接项目差异、Unity 引擎细节、资源格式、协议格式和第三方库接入。
+- 框架整体遵循“`Component` 接 Unity，`Manager` 管流程，`Interface` 定边界，`Helper` 管细节”的设计思路。
+- `Manager` 负责稳定的通用流程，例如资源加载调度、UI 打开关闭、实体显示隐藏、网络连接管理等；具体如何实例化、解析、加载、播放、编码解码等细节交给 `Helper`。
+- 这种设计可以避免核心 `Manager` 变得臃肿，减少框架核心对 Unity API、业务格式和第三方插件的直接依赖，方便后续替换资源系统、UI 系统、数据表格式、本地化格式或网络协议。
+- 整体运行流程可以概括为：Unity 加载 `GameFramework` 对象，各个 `XXXComponent.Awake()` 注册到 Runtime 层 `GameEntry`，组件再通过 `GameFrameworkEntry.GetModule<T>()` 获取或创建核心 `Manager`，最后由 `BaseComponent.Update()` 每帧驱动所有核心模块更新。
+- 游戏退出时，`GameEntry.Shutdown()` 会触发 `BaseComponent` 销毁，并由 `GameFrameworkEntry.Shutdown()` 反向关闭所有底层模块，清理引用池、缓存和日志辅助器。
+- 通过 UI 打开流程进一步理解了框架协作方式：业务调用 `UIComponent`，`UIManager` 组织打开流程，`ResourceManager` 异步加载资源，`Helper` 处理 Unity 实例化细节，最后通过事件通知业务结果。
+
+当前进一步理解：UnityGameFramework 的整体设计目标是把 Unity 游戏中常见的基础设施标准化、模块化和可替换化，让业务层专注玩法逻辑，而不是反复处理资源、对象生命周期、流程切换和模块耦合问题。
